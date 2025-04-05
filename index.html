@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Bản đồ Bus & Train</title>
+  <title>Adelaide Metro Realtime</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
@@ -19,25 +19,95 @@
     }
 
     .filter-box {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
-      z-index: 999;
-      font-family: sans-serif;
-    }
+  position: absolute;
+  bottom: 60px; /* 👈 cách đáy 80px để không đè lên countBox & footerLink */
+  left: 10px;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  z-index: 999;
+  font-family: sans-serif;
+}
+
+    .count-box {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+  font-family: sans-serif;
+  font-size: 14px;
+  z-index: 999;
+}
+
+
+.footer-link {
+  position: absolute;
+  bottom: 40px;
+  left: 10px;
+  font-size: 13px;
+  font-family: sans-serif;
+  background: rgba(255,255,255,0.9);
+  padding: 4px 10px;
+  border-radius: 5px;
+  box-shadow: 0 0 3px rgba(0,0,0,0.2);
+  z-index: 999;
+}
+
+.footer-link a {
+  color: #0077cc;
+  text-decoration: none;
+}
+
+.footer-link a:hover {
+  text-decoration: underline;
+}
+
+.footer-note {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-size: 12px;
+  font-family: sans-serif;
+  color: #555;
+  opacity: 0.7;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 4px 10px;
+  border-radius: 4px;
+  z-index: 999;
+}
+
+.footer-note a {
+  color: #007acc;
+  text-decoration: none;
+}
+
+.footer-note a:hover {
+  text-decoration: underline;
+}
+
   </style>
 </head>
 <body>
+  
 <div id="map"></div>
+
+
+<div id="countBox" class="count-box"></div>
+ 
+
 
 <!-- Bộ lọc -->
 <div class="filter-box">
   <label><input type="checkbox" id="busCheckbox" checked>Display buses</label><br>
   <label><input type="checkbox" id="trainCheckbox" checked>Display trains and trams</label>
+</div>
+
+<div class="footer-note">
+  🔗 <a href="https://www.nguyenlethanh.com" target="_blank">Flinders University | nguyenlethanh.com</a>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -46,10 +116,7 @@
   const baseLayers = {
     "Traffic Mode": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
-    }),
-    "Dark Mode": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© CartoDB'
-    }),
+    }), 
     "Satellite Mode": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       attribution: '© Esri'
     })
@@ -62,7 +129,8 @@
   });
 
   L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
- 
+  map.locate();
+
   // ===== 2. Nút định vị vị trí người dùng =====
   const locateControl = L.control({ position: 'bottomright' });
   locateControl.onAdd = function (map) {
@@ -82,23 +150,37 @@
   };
   locateControl.addTo(map);
 
+
+  let userLocationMarker = null;
+
+
   map.on('locationfound', e => {
   map.setView(e.latlng, 16); // 👈 luôn zoom về 13
-  L.marker(e.latlng).addTo(map).bindPopup("You are here!").openPopup();
- });
+
+  if (userLocationMarker) {
+    map.removeLayer(userLocationMarker);
+  }
+
+  userLocationMarker = L.marker(e.latlng).addTo(map).bindPopup("You are here").openPopup();
+});
+
 
   // ===== 3. Icon bus & train =====
   const iconBus = new L.Icon({
-    iconUrl: 'bus.png',
-    iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
-  });
+  iconUrl: 'bus.png',
+  iconSize: [40, 40],          // 👈 lớn hơn mặc định, nhỏ hơn to nhất
+  iconAnchor: [20, 40],        // 👈 chính giữa đáy icon
+  popupAnchor: [0, -40]        // 👈 popup hiển thị phía trên icon
+});
 
-  const iconTrain = new L.Icon({
-    iconUrl: 'train.png',
-    iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
-  });
+const iconTrain = new L.Icon({
+  iconUrl: 'train.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
+}); 
 
-  function getIconByType(type) {
+function getIconByType(type) {
     return type === 'bus' ? iconBus : type === 'train' ? iconTrain : L.Icon.Default();
   }
 
@@ -127,13 +209,23 @@
         }
       });
 
+
+// Tính tổng số lượng theo loại
+const busCount = data.filter(item => item.type === 'bus' && showBus).length;
+const trainCount = data.filter(item => item.type === 'train' && showTrain).length;
+
+// Cập nhật UI
+document.getElementById('countBox').innerText = `🚍 Buses: ${busCount}    🚆 Trains/Trams: ${trainCount}`;
+
+
+
     } catch (err) {
       console.error("Lỗi fetch dữ liệu:", err);
     }
   }
 
   fetchAndUpdateMarkers();
-  setInterval(fetchAndUpdateMarkers, 15000);
+  setInterval(fetchAndUpdateMarkers, 16000);
 
   // ===== 5. Cập nhật marker khi thay đổi checkbox =====
   document.getElementById('busCheckbox').addEventListener('change', fetchAndUpdateMarkers);
