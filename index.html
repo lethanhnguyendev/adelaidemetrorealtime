@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Bản đồ Bus & Train</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    .leaflet-bottom.leaflet-right {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .filter-box {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      z-index: 999;
+      font-family: sans-serif;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- Bộ lọc -->
+<div class="filter-box">
+  <label><input type="checkbox" id="busCheckbox" checked>Display buses</label><br>
+  <label><input type="checkbox" id="trainCheckbox" checked>Display trains and trams</label>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  // ===== 1. Base Map Layers =====
+  const baseLayers = {
+    "Traffic Mode": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }),
+    "Dark Mode": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© CartoDB'
+    }),
+    "Satellite Mode": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri'
+    })
+  };
+
+  const map = L.map('map', {
+    center: [-34.9285, 138.6007],
+    zoom: 13,
+    layers: [baseLayers["Traffic Mode"]]
+  });
+
+  L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+ 
+  // ===== 2. Nút định vị vị trí người dùng =====
+  const locateControl = L.control({ position: 'bottomright' });
+  locateControl.onAdd = function (map) {
+    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    div.innerHTML = '📍';
+    div.title = 'Your location';
+    div.style.backgroundColor = 'white';
+    div.style.width = '34px';
+    div.style.height = '34px';
+    div.style.lineHeight = '34px';
+    div.style.textAlign = 'center';
+    div.style.cursor = 'pointer';
+    div.onclick = () => {
+      map.locate();
+    };
+    return div;
+  };
+  locateControl.addTo(map);
+
+  map.on('locationfound', e => {
+  map.setView(e.latlng, 16); // 👈 luôn zoom về 13
+  L.marker(e.latlng).addTo(map).bindPopup("You are here!").openPopup();
+ });
+
+  // ===== 3. Icon bus & train =====
+  const iconBus = new L.Icon({
+    iconUrl: 'bus.png',
+    iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+  });
+
+  const iconTrain = new L.Icon({
+    iconUrl: 'train.png',
+    iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+  });
+
+  function getIconByType(type) {
+    return type === 'bus' ? iconBus : type === 'train' ? iconTrain : L.Icon.Default();
+  }
+
+  // ===== 4. Hiển thị marker từ API =====
+  let markers = [];
+
+  async function fetchAndUpdateMarkers() {
+    try {
+      const res = await fetch('https://functionappadelaidemetro.azurewebsites.net/api/function3');
+      const data = await res.json();
+
+      const showBus = document.getElementById('busCheckbox').checked;
+      const showTrain = document.getElementById('trainCheckbox').checked;
+
+      markers.forEach(marker => map.removeLayer(marker));
+      markers = [];
+
+      data.forEach(item => {
+        const { lat, lng, name, type } = item;
+
+        if ((type === 'bus' && showBus) || (type === 'train' && showTrain)) {
+          const marker = L.marker([lat, lng], { icon: getIconByType(type) })
+            .addTo(map)
+            .bindPopup(`<strong>${name}</strong><br>Type: ${type}`);
+          markers.push(marker);
+        }
+      });
+
+    } catch (err) {
+      console.error("Lỗi fetch dữ liệu:", err);
+    }
+  }
+
+  fetchAndUpdateMarkers();
+  setInterval(fetchAndUpdateMarkers, 15000);
+
+  // ===== 5. Cập nhật marker khi thay đổi checkbox =====
+  document.getElementById('busCheckbox').addEventListener('change', fetchAndUpdateMarkers);
+  document.getElementById('trainCheckbox').addEventListener('change', fetchAndUpdateMarkers);
+</script>
+</body>
+</html>
