@@ -113,15 +113,44 @@
   // ===== 2. Nút định vị vị trí người dùng =====
   const locateControl = L.control({ position: 'bottomright' });
   locateControl.onAdd = function (map) {
-    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-    div.innerHTML = '📍';
-    div.title = 'Your location';
-    div.style.backgroundColor = 'white';
-    div.style.width = '34px';
-    div.style.height = '34px';
-    div.style.lineHeight = '34px';
-    div.style.textAlign = 'center';
-    div.style.cursor = 'pointer';
+
+
+
+const div = L.DomUtil.create('div', 'leaflet-control-custom');
+
+div.innerHTML = `
+  <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"></circle>
+    <circle cx="12" cy="12" r="10" stroke-opacity="0.3"></circle>
+    <line x1="12" y1="2" x2="12" y2="4"></line>
+    <line x1="12" y1="20" x2="12" y2="22"></line>
+    <line x1="2" y1="12" x2="4" y2="12"></line>
+    <line x1="20" y1="12" x2="22" y2="12"></line>
+  </svg>
+`;
+
+
+
+
+div.style.backgroundColor = 'transparent'; // 👈 không nền
+div.style.border = 'none';                 // 👈 không viền
+div.style.width = '36px';
+div.style.height = '36px';
+div.style.display = 'flex';
+div.style.alignItems = 'center';
+div.style.justifyContent = 'center';
+div.style.cursor = 'pointer';
+div.title = 'Tracking your location';
+
+
+
+
+
+
+div.onmouseenter = () => div.style.backgroundColor = '#f0f0f0';
+div.onmouseleave = () => div.style.backgroundColor = 'transparent';
+
+
     div.onclick = () => {
       map.locate();
     };
